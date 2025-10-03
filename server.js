@@ -13,6 +13,7 @@ const DATA_RETENTION_DAYS = process.env.DATA_RETENTION_DAYS || 7;
 const databaseUrl = process.env.DATABASE_PRIVATE_URL || process.env.DATABASE_URL;
 
 console.log('Environment check:');
+console.log('- PORT from env:', process.env.PORT || 'not set, using 8000');
 console.log('- DATABASE_PRIVATE_URL exists:', !!process.env.DATABASE_PRIVATE_URL);
 console.log('- DATABASE_URL exists:', !!process.env.DATABASE_URL);
 console.log('- Using database URL:', databaseUrl ? 'Found' : 'MISSING!');

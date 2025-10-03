@@ -12,6 +12,17 @@ const DATA_RETENTION_DAYS = process.env.DATA_RETENTION_DAYS || 7;
 // Use Railway's private network URL if available, fallback to public DATABASE_URL
 const databaseUrl = process.env.DATABASE_PRIVATE_URL || process.env.DATABASE_URL;
 
+console.log('Environment check:');
+console.log('- DATABASE_PRIVATE_URL exists:', !!process.env.DATABASE_PRIVATE_URL);
+console.log('- DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('- Using database URL:', databaseUrl ? 'Found' : 'MISSING!');
+
+if (!databaseUrl) {
+  console.error('FATAL: No DATABASE_URL or DATABASE_PRIVATE_URL environment variable found!');
+  console.error('Please add a PostgreSQL database in Railway and link it to this service.');
+  process.exit(1);
+}
+
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,

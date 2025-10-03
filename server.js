@@ -274,7 +274,7 @@ async function startServer() {
     // Initialize database if needed
     await initializeDatabaseIfNeeded();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Data retention: ${DATA_RETENTION_DAYS} days`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);

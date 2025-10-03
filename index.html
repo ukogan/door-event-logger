@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Door Event Logger</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      padding: 10px;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .header {
+      background: #2563eb;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 5px;
+    }
+
+    .header .subtitle {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .grid-container {
+      overflow-x: auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 60px repeat(4, 1fr);
+      gap: 4px;
+      padding: 8px;
+      min-width: 100%;
+    }
+
+    .grid-header {
+      position: sticky;
+      top: 0;
+      background: #1e40af;
+      color: white;
+      padding: 12px 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-align: center;
+      border-radius: 4px;
+      z-index: 10;
+    }
+
+    .door-label {
+      background: #e5e7eb;
+      padding: 12px 8px;
+      font-weight: 600;
+      text-align: center;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+    }
+
+    .event-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 16px 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      min-height: 48px;
+      touch-action: manipulation;
+    }
+
+    .event-btn:active {
+      background: #2563eb;
+      transform: scale(0.98);
+    }
+
+    .event-btn.flash-green {
+      animation: flashGreen 300ms ease-out;
+    }
+
+    .event-btn.swipe-red {
+      animation: swipeRed 500ms ease-out;
+    }
+
+    @keyframes flashGreen {
+      0%, 100% { background: #3b82f6; }
+      50% { background: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); }
+    }
+
+    @keyframes swipeRed {
+      0% { background: #3b82f6; }
+      50% { background: #ef4444; transform: translateX(-10px); }
+      100% { background: #3b82f6; transform: translateX(0); }
+    }
+
+    .event-btn .progress-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      display: none;
+    }
+
+    .event-btn.holding .progress-ring {
+      display: block;
+    }
+
+    .event-btn.holding {
+      background: #dc2626;
+    }
+
+    .progress-ring circle {
+      fill: none;
+      stroke: white;
+      stroke-width: 3;
+      stroke-dasharray: 113;
+      stroke-dashoffset: 113;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    .recent-events {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+    }
+
+    .recent-events h2 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+      color: #1f2937;
+    }
+
+    .event-log {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      color: #4b5563;
+    }
+
+    .event-item {
+      padding: 8px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .event-item:last-child {
+      border-bottom: none;
+    }
+
+    .event-item.deleted {
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      flex: 1;
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: #6b7280;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1f2937;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .toast.error {
+      background: #dc2626;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+    }
+
+    @media (min-width: 768px) {
+      .grid {
+        gap: 8px;
+        padding: 12px;
+      }
+
+      .event-btn {
+        padding: 20px 12px;
+        min-height: 56px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Door Event Logger</h1>
+    <div class="subtitle">Ground Truth Data Collection</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="exportData()">Export CSV</button>
+    <button class="btn btn-secondary" onclick="refreshEvents()">Refresh</button>
+  </div>
+
+  <div class="grid-container">
+    <div class="grid" id="buttonGrid">
+      <div class="grid-header"></div>
+      <div class="grid-header">A In</div>
+      <div class="grid-header">A Out</div>
+      <div class="grid-header">B In</div>
+      <div class="grid-header">B Out</div>
+    </div>
+  </div>
+
+  <div class="recent-events">
+    <h2>Recent Events</h2>
+    <div class="event-log" id="eventLog">
+      <div class="loading">Loading...</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    const LONG_PRESS_DURATION = 2000; // 2 seconds
+    let touchTimers = new Map();
+    let lastEventIds = new Map(); // Store last event ID per button
+
+    // Initialize grid
+    function initGrid() {
+      const grid = document.getElementById('buttonGrid');
+      const eventTypes = ['A_IN', 'A_OUT', 'B_IN', 'B_OUT'];
+      const labels = ['A In', 'A Out', 'B In', 'B Out'];
+
+      for (let door = 1; door <= 26; door++) {
+        // Door label
+        const doorLabel = document.createElement('div');
+        doorLabel.className = 'door-label';
+        doorLabel.textContent = door;
+        grid.appendChild(doorLabel);
+
+        // Event buttons
+        eventTypes.forEach((eventType, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'event-btn';
+          btn.textContent = labels[idx];
+          btn.dataset.door = door;
+          btn.dataset.eventType = eventType;
+
+          // Progress ring for long-press
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.classList.add('progress-ring');
+          svg.setAttribute('viewBox', '0 0 40 40');
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', '20');
+          circle.setAttribute('cy', '20');
+          circle.setAttribute('r', '18');
+          svg.appendChild(circle);
+          btn.appendChild(svg);
+
+          // Touch events
+          btn.addEventListener('touchstart', handleTouchStart, { passive: false });
+          btn.addEventListener('touchend', handleTouchEnd, { passive: false });
+          btn.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+          // Mouse events (for desktop testing)
+          btn.addEventListener('mousedown', handleTouchStart);
+          btn.addEventListener('mouseup', handleTouchEnd);
+          btn.addEventListener('mouseleave', handleTouchEnd);
+
+          grid.appendChild(btn);
+        });
+      }
+    }
+
+    function handleTouchStart(e) {
+      e.preventDefault();
+      const btn = e.currentTarget;
+      const door = btn.dataset.door;
+      const eventType = btn.dataset.eventType;
+      const key = `${door}-${eventType}`;
+
+      // Start long-press timer
+      const timer = setTimeout(() => {
+        handleLongPress(btn, door, eventType);
+      }, LONG_PRESS_DURATION);
+
+      touchTimers.set(key, {
+        timer,
+        startTime: Date.now(),
+        btn
+      });
+
+      // Start progress animation
+      btn.classList.add('holding');
+      const circle = btn.querySelector('circle');
+      if (circle) {
+        circle.style.transition = `stroke-dashoffset ${LONG_PRESS_DURATION}ms linear`;
+        circle.style.strokeDashoffset = '0';
+      }
+    }
+
+    function handleTouchMove(e) {
+      // Cancel long-press if finger moves
+      const btn = e.currentTarget;
+      const door = btn.dataset.door;
+      const eventType = btn.dataset.eventType;
+      const key = `${door}-${eventType}`;
+
+      cancelLongPress(key);
+    }
+
+    function handleTouchEnd(e) {
+      e.preventDefault();
+      const btn = e.currentTarget;
+      const door = btn.dataset.door;
+      const eventType = btn.dataset.eventType;
+      const key = `${door}-${eventType}`;
+
+      const timerData = touchTimers.get(key);
+      if (!timerData) return;
+
+      const duration = Date.now() - timerData.startTime;
+
+      if (duration < LONG_PRESS_DURATION) {
+        // Short press - record event
+        recordEvent(btn, door, eventType);
+      }
+
+      cancelLongPress(key);
+    }
+
+    function cancelLongPress(key) {
+      const timerData = touchTimers.get(key);
+      if (timerData) {
+        clearTimeout(timerData.timer);
+        timerData.btn.classList.remove('holding');
+        const circle = timerData.btn.querySelector('circle');
+        if (circle) {
+          circle.style.transition = 'none';
+          circle.style.strokeDashoffset = '113';
+        }
+        touchTimers.delete(key);
+      }
+    }
+
+    async function recordEvent(btn, door, eventType) {
+      // Optimistic UI update
+      btn.classList.add('flash-green');
+      setTimeout(() => btn.classList.remove('flash-green'), 300);
+
+      try {
+        const response = await fetch(`${API_BASE}/api/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            door_number: parseInt(door),
+            event_type: eventType
+          })
+        });
+
+        if (!response.ok) throw new Error('Failed to record event');
+
+        const event = await response.json();
+
+        // Store event ID for potential undo
+        const key = `${door}-${eventType}`;
+        lastEventIds.set(key, event.id);
+
+        // Refresh event log
+        await fetchRecentEvents();
+
+      } catch (error) {
+        console.error('Error recording event:', error);
+        showToast('Failed to record event', true);
+      }
+    }
+
+    async function handleLongPress(btn, door, eventType) {
+      const key = `${door}-${eventType}`;
+      const eventId = lastEventIds.get(key);
+
+      if (!eventId) {
+        showToast('No recent event to undo');
+        btn.classList.remove('holding');
+        return;
+      }
+
+      // Visual feedback
+      btn.classList.remove('holding');
+      btn.classList.add('swipe-red');
+      setTimeout(() => btn.classList.remove('swipe-red'), 500);
+
+      // Haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/events/${eventId}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete event');
+
+        lastEventIds.delete(key);
+        showToast('Event deleted');
+        await fetchRecentEvents();
+
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        showToast('Failed to delete event', true);
+      }
+    }
+
+    async function fetchRecentEvents() {
+      try {
+        const response = await fetch(`${API_BASE}/api/events/recent?limit=10`);
+        if (!response.ok) throw new Error('Failed to fetch events');
+
+        const data = await response.json();
+        displayEvents(data.events);
+
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        document.getElementById('eventLog').innerHTML = '<div class="loading">Error loading events</div>';
+      }
+    }
+
+    function displayEvents(events) {
+      const log = document.getElementById('eventLog');
+
+      if (events.length === 0) {
+        log.innerHTML = '<div class="loading">No events yet</div>';
+        return;
+      }
+
+      log.innerHTML = events.map(event => {
+        const time = new Date(event.timestamp_utc).toLocaleTimeString('en-US', {
+          hour12: false,
+          timeZone: 'UTC',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        const label = event.event_type.replace('_', ' ');
+        return `<div class="event-item">${time} UTC - Door ${event.door_number}, ${label}</div>`;
+      }).join('');
+    }
+
+    async function exportData() {
+      try {
+        showToast('Downloading...');
+        window.location.href = `${API_BASE}/api/events/export`;
+      } catch (error) {
+        console.error('Error exporting data:', error);
+        showToast('Export failed', true);
+      }
+    }
+
+    function refreshEvents() {
+      fetchRecentEvents();
+      showToast('Refreshed');
+    }
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.toggle('error', isError);
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Initialize on load
+    initGrid();
+    fetchRecentEvents();
+
+    // Auto-refresh events every 5 seconds
+    setInterval(fetchRecentEvents, 5000);
+  </script>
+</body>
+</html>

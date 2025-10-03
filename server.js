@@ -9,8 +9,11 @@ const PORT = process.env.PORT || 8000;
 const DATA_RETENTION_DAYS = process.env.DATA_RETENTION_DAYS || 7;
 
 // Database connection pool
+// Use Railway's private network URL if available, fallback to public DATABASE_URL
+const databaseUrl = process.env.DATABASE_PRIVATE_URL || process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 20,
   idleTimeoutMillis: 30000,

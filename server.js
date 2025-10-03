@@ -17,6 +17,49 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
+// Auto-initialize database on startup
+async function initializeDatabaseIfNeeded() {
+  const client = await pool.connect();
+  try {
+    // Check if events table exists
+    const tableCheck = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'events'
+      );
+    `);
+
+    if (!tableCheck.rows[0].exists) {
+      console.log('Events table not found. Initializing database...');
+
+      await client.query(`
+        CREATE TABLE events (
+          id SERIAL PRIMARY KEY,
+          door_number INTEGER NOT NULL CHECK (door_number >= 1 AND door_number <= 26),
+          event_type VARCHAR(10) NOT NULL CHECK (event_type IN ('A_IN', 'A_OUT', 'B_IN', 'B_OUT')),
+          timestamp_utc TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+          created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'UTC'),
+          deleted_at TIMESTAMP NULL
+        );
+      `);
+
+      await client.query(`CREATE INDEX idx_events_timestamp ON events(timestamp_utc DESC);`);
+      await client.query(`CREATE INDEX idx_events_door ON events(door_number);`);
+      await client.query(`CREATE INDEX idx_events_active ON events(deleted_at) WHERE deleted_at IS NULL;`);
+      await client.query(`CREATE INDEX idx_events_cleanup ON events(created_at) WHERE deleted_at IS NULL;`);
+
+      console.log('Database initialized successfully!');
+    } else {
+      console.log('Events table already exists.');
+    }
+  } catch (error) {
+    console.error('Error checking/initializing database:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -204,11 +247,23 @@ app.get('/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Data retention: ${DATA_RETENTION_DAYS} days`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+async function startServer() {
+  try {
+    // Initialize database if needed
+    await initializeDatabaseIfNeeded();
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Data retention: ${DATA_RETENTION_DAYS} days`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 // Handle shutdown gracefully
 process.on('SIGTERM', async () => {

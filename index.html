@@ -213,6 +213,18 @@
       background: #6b7280;
     }
 
+    .btn-success {
+      background: #10b981;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
     .toast {
       position: fixed;
       bottom: 20px;
@@ -260,6 +272,11 @@
   <div class="header">
     <h1>Door Event Logger</h1>
     <div class="subtitle">Ground Truth Data Collection</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-success" onclick="startTest()">Start Test</button>
+    <button class="btn btn-danger" onclick="endTest()">End Test</button>
   </div>
 
   <div class="controls">
@@ -509,6 +526,15 @@
           minute: '2-digit',
           second: '2-digit'
         });
+
+        // Handle test markers differently
+        if (event.event_type === 'TEST_START') {
+          return `<div class="event-item" style="background: #d1fae5; font-weight: bold; border-left: 4px solid #10b981;">🟢 ${time} UTC - TEST STARTED</div>`;
+        } else if (event.event_type === 'TEST_END') {
+          return `<div class="event-item" style="background: #fee2e2; font-weight: bold; border-left: 4px solid #ef4444;">🔴 ${time} UTC - TEST ENDED</div>`;
+        }
+
+        // Regular events
         const label = event.event_type.replace('_', ' ');
         return `<div class="event-item">${time} UTC - Door ${event.door_number}, ${label}</div>`;
       }).join('');
@@ -527,6 +553,44 @@
     function refreshEvents() {
       fetchRecentEvents();
       showToast('Refreshed');
+    }
+
+    async function startTest() {
+      try {
+        const response = await fetch(`${API_BASE}/api/test-marker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ marker_type: 'START' })
+        });
+
+        if (!response.ok) throw new Error('Failed to create start marker');
+
+        showToast('Test Started ✓', false);
+        await fetchRecentEvents();
+
+      } catch (error) {
+        console.error('Error starting test:', error);
+        showToast('Failed to start test', true);
+      }
+    }
+
+    async function endTest() {
+      try {
+        const response = await fetch(`${API_BASE}/api/test-marker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ marker_type: 'END' })
+        });
+
+        if (!response.ok) throw new Error('Failed to create end marker');
+
+        showToast('Test Ended ✓', false);
+        await fetchRecentEvents();
+
+      } catch (error) {
+        console.error('Error ending test:', error);
+        showToast('Failed to end test', true);
+      }
     }
 
     function showToast(message, isError = false) {

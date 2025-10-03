@@ -50,8 +50,8 @@ async function initializeDatabaseIfNeeded() {
       await client.query(`
         CREATE TABLE events (
           id SERIAL PRIMARY KEY,
-          door_number INTEGER NOT NULL CHECK (door_number >= 1 AND door_number <= 26),
-          event_type VARCHAR(10) NOT NULL CHECK (event_type IN ('A_IN', 'A_OUT', 'B_IN', 'B_OUT')),
+          door_number INTEGER CHECK (door_number >= 1 AND door_number <= 26),
+          event_type VARCHAR(10) CHECK (event_type IN ('A_IN', 'A_OUT', 'B_IN', 'B_OUT', 'TEST_START', 'TEST_END')),
           timestamp_utc TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
           created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'UTC'),
           deleted_at TIMESTAMP NULL
@@ -83,6 +83,40 @@ app.use(express.static('public'));
 // Serve frontend
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// API: Create test marker (Start/End)
+app.post('/api/test-marker', async (req, res) => {
+  const { marker_type } = req.body;
+
+  // Validation
+  if (!marker_type || !['START', 'END'].includes(marker_type)) {
+    return res.status(400).json({ error: 'marker_type must be START or END' });
+  }
+
+  try {
+    const eventType = marker_type === 'START' ? 'TEST_START' : 'TEST_END';
+
+    const result = await pool.query(
+      `INSERT INTO events (door_number, event_type, timestamp_utc, created_at)
+       VALUES (NULL, $1, NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC')
+       RETURNING id, door_number, event_type, timestamp_utc`,
+      [eventType]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating test marker:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail
+    });
+    res.status(500).json({
+      error: 'Failed to create test marker',
+      details: error.message
+    });
+  }
 });
 
 // API: Create new event
